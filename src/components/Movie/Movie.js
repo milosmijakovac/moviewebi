@@ -17,11 +17,12 @@ export class Movie extends Component {
   };
 
   componentDidMount() {
-    if(localStorage.getItem(`${this.props.match.params.movieId}`)) {
-      const state = JSON.parse(localStorage.getItem(`${this.props.match.params.movieId}`))
-      this.setState({...state})
+    if (localStorage.getItem(`${this.props.match.params.movieId}`)) {
+      const state = JSON.parse(
+        localStorage.getItem(`${this.props.match.params.movieId}`)
+      );
+      this.setState({ ...state });
     } else {
-
       this.setState({ loading: true });
       // fetch the movie
       const endpoint = `${API_URL}movie/${this.props.match.params.movieId}?api_key=${API_KEY}&language=en-US`;
@@ -29,41 +30,35 @@ export class Movie extends Component {
     }
   }
 
-  fetchItems = endpoint => {
-    fetch(endpoint)
-      .then(result => result.json())
-      .then(result => {
-        console.log(result);
-        if (result.status_code) {
-          this.setState({ loading: false });
-        } else {
-          this.setState({ movie: result }, () => {
-            // fetch actors in the setstate callback function
-            const endpoint = `${API_URL}movie/${this.props.match.params.movieId}/credits?api_key=${API_KEY}`;
-            fetch(endpoint)
-              .then(result => result.json())
-              .then(result => {
-                const directors = result.crew.filter(
-                  member => member.job === "Director"
-                );
-                this.setState(
-                  {
-                    actors: result.cast,
-                    directors,
-                    loading: false
-                  },
-                  () => {
-                    localStorage.setItem(
-                      `${this.props.match.params.movieId}`,
-                      JSON.stringify(this.state)
-                    );
-                  }
-                );
-              });
-          });
-        }
-      })
-      .catch(error => console.log("Error:", error));
+  fetchItems = async endpoint => {
+    const { movieId } = this.props.match.params;
+    try {
+      const result = await (await fetch(endpoint)).json();
+
+      if (result.status_code) {
+        this.setState({ loading: false });
+      } else {
+        this.setState({ movie: result });
+        const creditsEndpoint = `${API_URL}movie/${movieId}/credits?api_key=${API_KEY}`;
+        const creditsResult = await (await fetch(creditsEndpoint)).json();
+        const directors = creditsResult.crew.filter(member => member.job === "Director");
+        this.setState(
+          {
+            actors: creditsResult.cast,
+            directors,
+            loading: false
+          },
+          () => {
+            localStorage.setItem(
+              `${movieId}`,
+              JSON.stringify(this.state)
+            );
+          }
+        );
+      }
+    } catch (error) {
+      console.log("There was an error: ", error);
+    }
   };
 
   render() {
