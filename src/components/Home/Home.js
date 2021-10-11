@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React, { useState, useEffect } from "react";
 import {
   API_URL,
   API_KEY,
@@ -14,146 +14,72 @@ import LoadMoreBtn from "../elements/LoadMoreBtn/LoadMoreBtn";
 import Spinner from "../elements/Spinner/Spinner";
 import "./Home.css";
 
-class Home extends Component {
-  state = {
-    movies: [],
-    heroImage: null,
-    loading: false,
-    currentPage: 0,
-    totalPages: 0,
-    searchTerm: ""
+import { useFetchMovies } from "./customHook";
+
+const Home = () => {
+  const [{ state, isLoading }, fetchMovies] = useFetchMovies();
+
+  const searchItems = searchTerm => {
+    let endpoint = `${API_URL}search/movie?api_key=${API_KEY}&query=${searchTerm}`;
+
+    if (!searchTerm) {
+      endpoint = `${API_URL}movie/popular?api_key=${API_KEY}`;
+    }
+    fetchMovies(endpoint);
   };
 
-  componentDidMount() {
-    if (localStorage.getItem("HomeState")) {
-      const state = JSON.parse(localStorage.getItem("HomeState"));
-      this.setState({ ...state });
-    } else {
-      this.setState({ loading: true });
-      const endpoint = `${API_URL}movie/popular?api_key=${API_KEY}&language=en-US&page=1`;
-      this.fetchItems(endpoint);
+  const loadMoreItems = () => {
+    const { searchTerm, currentPage } = state;
+    let endpoint = `${API_URL}search/movie?api_key=${API_KEY}&query=${searchTerm}&page=${currentPage +
+      1}`;
+
+    if (!searchTerm) {
+      endpoint = `${API_URL}movie/popular?api_key=${API_KEY}&page=${currentPage +
+        1}`;
     }
-  }
-
-  searchItems = searchTerm => {
-    let endpoint = "";
-    this.setState({
-      movies: [],
-      loading: true,
-      searchTerm
-    });
-
-    if (searchTerm === "") {
-      endpoint = `${API_URL}movie/popular?api_key=${API_KEY}&language=en-US&page=1`;
-    } else {
-      endpoint = `${API_URL}search/movie?api_key=${API_KEY}&language=en-US&query=${searchTerm}`;
-    }
-
-    this.fetchItems(endpoint);
+    fetchMovies(endpoint);
   };
 
-  loadMoreItems = () => {
-    let endpoint = "";
-    this.setState({ loading: true });
-
-    if (this.state.searchTerm === "") {
-      endpoint = `${API_URL}movie/popular?api_key=${API_KEY}&language=en-US&page=${this
-        .state.currentPage + 1}`;
-    } else {
-      endpoint = `${API_URL}search/movie?api_key=${API_KEY}&language=en-US&query=${
-        this.state.searchTerm
-      }&page=${this.state.currentPage + 1}`;
-    }
-    this.fetchItems(endpoint);
-  };
-
-  fetchItems = async endpoint => {
-    const { movies, heroImage, searchTerm } = this.state;
-
-    const result = await (await fetch(endpoint)).json();
-    try {
-      this.setState(
-        {
-          movies: [...movies, ...result.results],
-          heroImage: heroImage || result.results[0],
-          loading: false,
-          currentPage: result.page,
-          totalPages: result.total_pages
-        },
-        () => {
-          if (searchTerm === "") {
-            localStorage.setItem("HomeState", JSON.stringify(this.state));
-          }
-        }
-      );
-      
-    } catch (error) {
-      console.log("There was an error ", error);
-    }
-  };
-
-  // fetchItems = endpoint => {
-
-  //   const {movies, heroImage, searchTerm} = this.state;
-
-  //   fetch(endpoint)
-  //     .then(result => result.json())
-  //     .then(result => {
-
-  //     });
-  // };
-
-  render() {
-    const {
-      movies,
-      heroImage,
-      loading,
-      currentPage,
-      totalPages,
-      searchTerm
-    } = this.state;
-
-    return (
-      <div className="rmdb-home">
-        {heroImage ? (
-          <div>
-            <HeroImage
-              image={`${IMAGE_BASE_URL}${BACKDROP_SIZE}${heroImage.backdrop_path}`}
-              title={heroImage.original_title}
-              text={heroImage.overview}
-            />
-            <SearchBar callback={this.searchItems} />
-          </div>
-        ) : null}
-        <div className="rmdb-home-grid">
-          <FourColGrid
-            header={searchTerm ? "Search result" : "Popular Movies"}
-            loading={loading}
-          >
-            {movies.map((element, i) => {
-              return (
-                <MovieThumb
-                  key={i}
-                  clickable={true}
-                  image={
-                    element.poster_path
-                      ? `${IMAGE_BASE_URL}${POSTER_SIZE}${element.poster_path}`
-                      : "./images/no_image.jpg"
-                  }
-                  movieId={element.id}
-                  movieName={element.original_title}
-                />
-              );
-            })}
-          </FourColGrid>
-          {loading ? <Spinner /> : null}
-          {currentPage <= totalPages && !loading ? (
-            <LoadMoreBtn text="Load More" onClick={this.loadMoreItems} />
-          ) : null}
+  return (
+    <div className="rmdb-home">
+      {state.heroImage && !state.searchTerm ? (
+        <div>
+          <HeroImage
+            image={`${IMAGE_BASE_URL}${BACKDROP_SIZE}${state.heroImage.backdrop_path}`}
+            title={state.heroImage.original_title}
+            text={state.heroImage.overview}
+          />
         </div>
+      ) : null}
+      <SearchBar callback={searchItems} />
+      <div className="rmdb-home-grid">
+        <FourColGrid
+          header={state.searchTerm ? "Search result" : "Popular Movies"}
+          loading={isLoading}
+        >
+          {state.movies.map((element, i) => {
+            return (
+              <MovieThumb
+                key={i}
+                clickable={true}
+                image={
+                  element.poster_path
+                    ? `${IMAGE_BASE_URL}${POSTER_SIZE}${element.poster_path}`
+                    : "./images/no_image.jpg"
+                }
+                movieId={element.id}
+                movieName={element.original_title}
+              />
+            );
+          })}
+        </FourColGrid>
+        {isLoading ? <Spinner /> : null}
+        {state.currentPage <= state.totalPages && !isLoading ? (
+          <LoadMoreBtn text="Load More" onClick={loadMoreItems} />
+        ) : null}
       </div>
-    );
-  }
-}
+    </div>
+  );
+};
 
 export default Home;
